@@ -1,2 +1,2 @@
-# mt_omg_missions
-A minetest mod for missions in the OccupyMoon game.
+# Missions mod for OccupyMoon
+This mod creates missions for the player. On completion, the user can request a space ship that will deliver the reward.
