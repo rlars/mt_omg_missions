@@ -2,7 +2,7 @@ local storage = minetest.get_mod_storage()
 
 Mission = {
     get_current = function ()
-        progress = storage:get("progressv0")
+        local progress = storage:get("progressv0")
         if progress then return progress
         else
             storage:set_string("progressv0", "first")
@@ -60,7 +60,7 @@ end
 -- check if all itemstacks of t_needed are in t_has
 -- TODO: currently, does not check if an itemstack is split
 local function get_itemstacks_state(t_has, t_needed)
-    summary = {}
+    local summary = {}
     for _, i_needed in ipairs(t_needed) do
         minetest.debug("needed: " .. dump(i_needed:get_name() .. ", " .. i_needed:get_count()))
         local i_has = find_stack_in_table(t_has, i_needed)
@@ -117,7 +117,8 @@ local function set_rocket_payload(rocket, payload)
     local i = 1
     -- notice that we swapped order so we fill rocket from bottom to top
     for y = 2, 4 do
-        for z = 1, 3 do
+        -- don´t put anything in the middle
+        for z = 1, 3, 2 do
             for x = 1, 3 do
                 if i <= #payload and payload[i] then
                     local node = payload[i]
@@ -139,7 +140,7 @@ local function set_rocket_crate_content(base_pos, payload)
     local i = 1
     -- notice that we swapped order so we fill rocket from bottom to top
     for y = 2, 4 do
-        for z = -1, 1 do
+        for z = -1, 1, 2 do
             for x = -1, 1 do
                 if i <= #payload and payload[i] then
                     if is_itemstack(payload[i]) or is_list_of_itemstacks(payload[i]) then
@@ -169,21 +170,39 @@ local function rocket_nodes()
     for dz = -2, 2 do
         for dy = 0, 6 do
             for dx = -2, 2 do
-                local v = "vacuum:vacuum"
-                if  dy == 0 and ((dx == -2 or dx == 2) and (dz == -2 or dz == 2)) then
-                    v = "scifi_nodes:greybolts"
+                local node = { name = "vacuum:vacuum" }
+                if dy == 2 and (dx == -2 and dz == 0) then
+                    node = { name = "scifi_nodes:white_door_closed", param2 = 1 }
+                elseif dy == 3 and (dx == -2 and dz == 0) then
+                    node = { name = "scifi_nodes:white_door_closed_top", param2 = 1 }
+                -- lowest layer, landing gear
+                elseif  dy == 0 and ((dx == -2 or dx == 2) and (dz == -2 or dz == 2)) then
+                    node = { name = "scifi_nodes:greybolts" }
+                -- lowest layer, engine
                 elseif  dy == 0 and dx == 0 and dz == 0 then
-                    v = "scifi_nodes:engine"
-                elseif  dy > 0 and dy < 5 and ((dx ~= -2 and dx ~= 2) or (dz ~= -2 and dz ~= 2)) then
-                    v = "scifi_nodes:greybolts"
-                elseif dy == 5 and ((dx ~= -2 and dx ~= 2) and (dz ~= -2 and dz ~= 2)) then
-                    v = "scifi_nodes:greybolts"
+                    node = { name = "scifi_nodes:engine" }
+                -- exterior
+                elseif  dy > 0 and dy <= 5 and ((dx ~= -2 and dx ~= 2) or (dz ~= -2 and dz ~= 2)) then
+                    node = { name = "scifi_nodes:greybolts" }
+                elseif dy == 6 and ((dx ~= -2 and dx ~= 2) and (dz ~= -2 and dz ~= 2)) then
+                    node = { name = "scifi_nodes:greybolts" }
                 end
-				table.insert(t, { name = v })
+                -- fill inner with air
+                if  dy >= 2 and dy <= 4 and (dx >= -1 and dx <= 1) and (dz >= -1 and dz <= 1) then
+                    node = { name = "air" }
+                end
+				table.insert(t, node)
 			end
 		end
 	end
     return t
+end
+
+
+local function fully_charged_battery()
+    itemstack = ItemStack("technic:battery")
+    technic.refill_RE_charge(itemstack)
+    return itemstack
 end
 
 
@@ -194,7 +213,7 @@ function Mission.get_rewards()
             -- technic
             create_itemstack("technic:solar_array_lv", 12), create_itemstack("technic:lv_cable", 60), "technic:switching_station",
             "technic:switching_station", create_itemstack("technic:lv_lamp", 4), create_itemstack("technic:lv_led", 4),
-            "technic:lv_electric_furnace", "technic:lv_battery_box0", { ItemStack("technic:battery"), ItemStack("technic:battery") },
+            "technic:lv_electric_furnace", "technic:lv_battery_box0", { fully_charged_battery(), fully_charged_battery() },
             -- other stuff
             create_itemstack("scifi_nodes:white_door_closed", 4),
             -- suit
@@ -210,7 +229,7 @@ function Mission.get_rewards()
             -- technic
             create_itemstack("technic:solar_array_lv", 12), create_itemstack("technic:lv_cable", 60), "technic:switching_station",
             create_itemstack("technic:lv_lamp", 4), create_itemstack("technic:lv_led", 8), create_itemstack("technic:lv_lamp", 4),
-            "technic:lv_electric_furnace", "technic:lv_battery_box0", { ItemStack("technic:battery"), ItemStack("technic:battery") },
+            "technic:lv_electric_furnace", "technic:lv_battery_box0", { fully_charged_battery(), fully_charged_battery() },
             -- other stuff
             create_itemstack("scifi_nodes:white_door_closed", 4),
             -- air
@@ -231,7 +250,7 @@ local function place_schematic(pos, schematic)
     for dz = -2, 2 do
         for dy = 0, 6 do
             for dx = -2, 2 do
-                if i <= #schematic and schematic[i] then
+                if i <= #schematic and schematic[i] and schematic[i] then
                     minetest.add_node(vector.offset(pos, dx, dy, dz), schematic[i])
                 end
 				i = i + 1

@@ -8,6 +8,41 @@ local chemsampler_formspec =
     "listring[current_player;main]"
     --default.get_hotbar_bg(0,2.85)
 
+-- reorder the list of items needed for the mission so player can see what they need
+local function match_item_names(inv_list, objective_progress)
+    local out_objective_progress = {}
+    local assigned_itemprogress = {}
+    for _, inv in ipairs(inv_list) do
+        local insert_value = {}
+        if inv:get_name() ~= "" then
+            for _, itemprogress in ipairs(objective_progress) do
+                if itemprogress.name == inv:get_name() then
+                    insert_value = itemprogress
+                    break
+                end
+            end
+        end
+        table.insert(out_objective_progress, insert_value)
+        if insert_value.name then
+            assigned_itemprogress[insert_value.name] = insert_value
+        end
+    end
+    -- now add those unmatched to empty slots
+    local min_i = 1
+    for _, itemprogress in ipairs(objective_progress) do
+        if not assigned_itemprogress[itemprogress.name] then
+            for i = min_i, #inv_list do
+                if inv_list[i]:get_name() == "" then
+                    out_objective_progress[i] = itemprogress
+                    min_i = i + 1
+                    break
+                end
+            end
+        end
+    end
+    return out_objective_progress
+end
+
 local function update_formspec(pos)
     local meta = minetest.get_meta(pos)
     local inv = meta:get_inventory()
@@ -15,11 +50,14 @@ local function update_formspec(pos)
 
     local mission = Mission.get_current_objective()
     if mission then
-        objective_progress = mission:get_objective_progress(inv:get_list("input"))
+        local objective_progress = mission:get_objective_progress(inv:get_list("input"))
+        objective_progress = match_item_names(inv:get_list("input"), objective_progress)
         for i, itemprogress in ipairs(objective_progress) do
-            formspec = formspec .. "item_image[" .. (i - 1) .. "," .. 0.3 .. ";1,1;" .. itemprogress.name .. "]"
-            local current_count_string = itemprogress.count >= itemprogress.needed and minetest.colorize("#00FF00", tostring(itemprogress.count)) or tostring(itemprogress.count)
-            formspec = formspec .. "label[" .. (i - 1) .. "," .. 1.3 .. ";" .. current_count_string .. "/" .. tostring(itemprogress.needed) .. "]"
+            if itemprogress.name then
+                formspec = formspec .. "item_image[" .. (i - 1) .. "," .. 0.3 .. ";1,1;" .. itemprogress.name .. "]"
+                local current_count_string = itemprogress.count >= itemprogress.needed and minetest.colorize("#00FF00", tostring(itemprogress.count)) or tostring(itemprogress.count)
+                formspec = formspec .. "label[" .. (i - 1) .. "," .. 1.3 .. ";" .. current_count_string .. "/" .. tostring(itemprogress.needed) .. "]"
+            end
         end
     end
 
